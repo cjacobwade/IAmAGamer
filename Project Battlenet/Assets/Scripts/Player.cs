@@ -6,15 +6,20 @@ public class Player : MonoBehaviour {
 	//Movement
 		public int moveSpeed;
 		public Vector3 velocity;
-	
+		
+		//ScreenWrap
+			public int[] screenBounds;
 		//Jumping
 			public bool isJumping;
 			public int jumpSpeed;
+			bool wallJump = false;
 			public float currentGravity;
 			public float wallGravity;
+			public float maxGravity;
 			float initGravity;
 
 		//WallJumping
+			public LayerMask platLayer;
 			public bool isWalled;
 			public float initWall;
 			public float currentWall;
@@ -62,15 +67,31 @@ public class Player : MonoBehaviour {
 		Gravity ();
 		Controls();
 		Collisions();
+		ScreenWrap();
 		controller.Move(velocity*moveSpeed*Time.deltaTime);
 	}
 	
+	void ScreenWrap()
+	{
+		if(transform.position.x < screenBounds[0])
+			transform.position = new Vector3(screenBounds[1],transform.position.y,transform.position.z);
+		if(transform.position.x > screenBounds[1])
+			transform.position = new Vector3(screenBounds[0],transform.position.y,transform.position.z);
+		if(transform.position.y > screenBounds[2])
+			transform.position = new Vector3(transform.position.x,screenBounds[3],transform.position.z);
+		if(transform.position.y < screenBounds[3])
+			transform.position = new Vector3(transform.position.x,screenBounds[2],transform.position.z);
+	}
 	void Gravity()
 	{
 		if(!controller.isGrounded)
-			velocity.y -= currentGravity*Time.deltaTime;
+		{
+			if(velocity.y > maxGravity)
+				velocity.y -= currentGravity*Time.deltaTime;
+		}
 		else
 		{	
+			//wallJump = false;
 			currentWall = 0;
 			leftWall=false;
 			rightWall=false;
@@ -94,16 +115,19 @@ public class Player : MonoBehaviour {
 	
 	void Collisions()
 	{
-			
-		if(Physics.Raycast(transform.position,Vector3.right,1.3f))
+		
+		if(controller.collisionFlags == CollisionFlags.Above)
+			velocity.y = -.5f;
+		
+		if(Physics.Raycast(transform.position,Vector3.right,1.2f,platLayer))
 		{
-			WallHit();
 			rightWall = true;
-		}
-		else if(Physics.Raycast(transform.position,-Vector3.right,1.3f))
-		{
 			WallHit();
+		}
+		else if(Physics.Raycast(transform.position,-Vector3.right,1.2f,platLayer))
+		{
 			leftWall = true;
+			WallHit();
 		}
 		else
 		{
@@ -116,6 +140,10 @@ public class Player : MonoBehaviour {
 	{
 		if(velocity.y < 0)
 			currentGravity = wallGravity;
+		else
+			currentGravity = initGravity;
+		if(!isWalled)
+			velocity.y = 0;
 		isWalled = true;
 	}
 	
@@ -153,16 +181,27 @@ public class Player : MonoBehaviour {
 	
 	void WallJump()
 	{
-		currentGravity = initGravity;
-		if(rightWall)
-			currentWall = -initWall*Time.deltaTime;
-		else
-			currentWall = initWall*Time.deltaTime;
-		velocity.y = 0;
-		velocity.y = jumpSpeed/1.2f*Time.deltaTime;
-		velocity.x = 0;
+		if(!wallJump)
+		{
+			//currentGravity = initGravity;
+			if(rightWall)
+				currentWall = -initWall*Time.deltaTime;
+			else
+				currentWall = initWall*Time.deltaTime;
+			velocity.y = 0;
+			velocity.y = jumpSpeed/1.2f*Time.deltaTime;
+			velocity.x = 0;
+			StartCoroutine(wallCountdown(.2f));
+			wallJump = true;
+		}
 	}
 	
+	IEnumerator wallCountdown(float waitTime)
+	{
+		yield return new WaitForSeconds(waitTime);
+		wallJump = false;
+	}
+
 	void Dodge()
 	{
 		isDodge = true;
