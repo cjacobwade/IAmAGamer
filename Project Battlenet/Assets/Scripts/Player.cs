@@ -7,8 +7,6 @@ public class Player : MonoBehaviour {
 		public int moveSpeed;
 		public Vector3 velocity;
 		
-		//ScreenWrap
-			public int[] screenBounds;
 		//Jumping
 			public bool isJumping;
 			public int jumpSpeed;
@@ -20,17 +18,19 @@ public class Player : MonoBehaviour {
 
 		//WallJumping
 			public LayerMask platLayer;
-			public bool isWalled;
+			public bool isWalled,rightWall,leftWall;
 			public float initWall;
-			public float currentWall;
-			public bool rightWall,leftWall;
+			float currentWall;
 		
 		//Dodge
 			bool isDodge = false;
 			public int dodgeSpeed;
 	
 		//Slash
-			bool isSlash = false;
+			public bool isSlash;
+	
+		//ScreenWrap
+			public int[] screenBounds;
 	
 	//Death
 	
@@ -45,6 +45,7 @@ public class Player : MonoBehaviour {
 	//Object Refs
 		CharacterController controller;
 		public GameObject sprite;
+		public GameObject slash;
 	
 	// Use this for initialization
 	void Start () 
@@ -63,9 +64,13 @@ public class Player : MonoBehaviour {
 	
 	void Movement()
 	{
-		velocity = new Vector3(Input.GetAxis("Horizontal")+currentWall,velocity.y,0);
+		if(!slash.activeSelf)
+		{
+			velocity = new Vector3(Input.GetAxis("Horizontal")+currentWall,velocity.y,0);
+			Controls();
+		}
 		Gravity ();
-		Controls();
+		
 		Collisions();
 		ScreenWrap();
 		controller.Move(velocity*moveSpeed*Time.deltaTime);
@@ -152,7 +157,19 @@ public class Player : MonoBehaviour {
 		if(velocity.x < 0)
 			sprite.transform.localScale = new Vector3(-1,1,1);
 		else if(velocity.x > 0)
-			sprite.transform.localScale = new Vector3(1,1,1);	
+			sprite.transform.localScale = new Vector3(1,1,1);
+		if(!slash.activeSelf)
+		{
+			if(Input.GetAxis("Vertical")>0)
+				slash.transform.eulerAngles = new Vector3(0,0,90);
+			else if(Input.GetAxis("Vertical")<0)
+			{
+				if(!controller.isGrounded)
+					slash.transform.eulerAngles = new Vector3(0,0,-90);
+			}
+			else
+				slash.transform.rotation = new Quaternion(0,0,0,0);
+		}
 	}
 	
 	#region Controls
@@ -166,9 +183,15 @@ public class Player : MonoBehaviour {
 			else if(controller.isGrounded)
 				Jump ();
 		}
+		
+		if(Input.GetButtonDown("Slash"))
+		{
+			Slash ();
+		}
+			
 		if(Input.GetButton("Dodge"))
 		{
-			if(!isDodge&&!isSlash)
+			if(!isDodge&&slash.activeSelf)
 				Dodge ();
 		}
 	}
@@ -209,7 +232,15 @@ public class Player : MonoBehaviour {
 	
 	void Slash()
 	{
-		isSlash = true;
+		if(!slash.activeSelf)
+			StartCoroutine(slashCountdown(.7f));
+	}
+	
+	IEnumerator slashCountdown(float waitTime)
+	{
+		slash.SetActive(true);
+		yield return new WaitForSeconds(waitTime);
+		slash.SetActive(false);
 	}
 	
 	#endregion
