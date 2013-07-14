@@ -45,6 +45,7 @@ public class Player : MonoBehaviour {
 	//Object Refs
 		CharacterController controller;
 		public GameObject sprite;
+		public GameObject slashHolder;
 		public GameObject slash;
 	
 	// Use this for initialization
@@ -57,20 +58,26 @@ public class Player : MonoBehaviour {
 	// Update is called once per frame
 	void Update () 
 	{
-		Character();
-		Movement();
-		DebugStuff();
+		if(networkView.isMine)
+		{
+			Character(velocity.x,slashHolder.activeSelf,Input.GetAxis("Vertical"),controller.isGrounded);
+			Movement();
+		}
+		//DebugStuff();
+//		else
+//		{
+//			SyncedMovement();	
+//		}
 	}
 	
 	void Movement()
 	{
-		if(!slash.activeSelf)
+		if(!slashHolder.activeSelf)
 		{
 			velocity = new Vector3(Input.GetAxis("Horizontal")+currentWall,velocity.y,0);
 			Controls();
 		}
 		Gravity ();
-		
 		Collisions();
 		ScreenWrap();
 		controller.Move(velocity*moveSpeed*Time.deltaTime);
@@ -152,24 +159,29 @@ public class Player : MonoBehaviour {
 		isWalled = true;
 	}
 	
-	void Character()
+	
+	
+	[RPC] void Character(float xVelocity,bool swordActive, float vAxis,bool isGrounded)
 	{
-		if(velocity.x < 0)
+		if(xVelocity < 0)
 			sprite.transform.localScale = new Vector3(-1,1,1);
-		else if(velocity.x > 0)
+		if(xVelocity > 0)
 			sprite.transform.localScale = new Vector3(1,1,1);
-		if(!slash.activeSelf)
+		if(!swordActive)
 		{
-			if(Input.GetAxis("Vertical")>0)
-				slash.transform.eulerAngles = new Vector3(0,0,90);
-			else if(Input.GetAxis("Vertical")<0)
+			if(vAxis > 0)
+				slashHolder.transform.eulerAngles = new Vector3(0,0,90);
+			else if(vAxis<0)
 			{
-				if(!controller.isGrounded)
-					slash.transform.eulerAngles = new Vector3(0,0,-90);
+				if(!isGrounded)
+					slashHolder.transform.eulerAngles = new Vector3(0,0,-90);
 			}
 			else
-				slash.transform.rotation = new Quaternion(0,0,0,0);
+				slashHolder.transform.rotation = new Quaternion(0,0,0,0);
 		}
+		
+		if(networkView.isMine)
+			networkView.RPC("Character",RPCMode.OthersBuffered,xVelocity,swordActive,vAxis,isGrounded);
 	}
 	
 	#region Controls
@@ -230,17 +242,22 @@ public class Player : MonoBehaviour {
 		isDodge = true;
 	}
 	
-	void Slash()
+	[RPC] void Slash()
 	{
-		if(!slash.activeSelf)
-			StartCoroutine(slashCountdown(.7f));
+		if(!slashHolder.activeSelf)
+			StartCoroutine(slashCountdown(.5f));
+		
+		if(networkView.isMine)
+			networkView.RPC ("Slash",RPCMode.OthersBuffered);
 	}
 	
 	IEnumerator slashCountdown(float waitTime)
 	{
-		slash.SetActive(true);
+		slashHolder.SetActive(true);
+		slash.animation["Slash"].speed = 1.7f;
+		slash.animation.Play("Slash");
 		yield return new WaitForSeconds(waitTime);
-		slash.SetActive(false);
+		slashHolder.SetActive(false);
 	}
 	
 	#endregion
